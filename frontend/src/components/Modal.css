@@ -65,6 +65,11 @@
   font-size: 1rem;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  text-align: center;
+}
+
+.form-group input::placeholder {
+  text-align: center;
 }
 
 .form-group input:focus {

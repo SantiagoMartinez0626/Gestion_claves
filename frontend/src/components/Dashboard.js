@@ -30,9 +30,12 @@ const Dashboard = ({ user, onLogout }) => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.put(
-        'http://localhost:5000/api/users/change-password',
-        passwordData,
+      await axios.post(
+        'http://localhost:5000/api/auth/change-password',
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSuccess('Contraseña actualizada exitosamente');

@@ -5,11 +5,15 @@ import './PasswordManager.css';
 
 const PasswordManager = ({ showOnlyFavorites = false }) => {
   const [passwords, setPasswords] = useState([]);
+  const [filteredPasswords, setFilteredPasswords] = useState([]);
   const [selectedPassword, setSelectedPassword] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [copiedField, setCopiedField] = useState(null);
 
   useEffect(() => {
     fetchPasswords();
@@ -31,12 +35,35 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
     }
   }, [success, error]);
 
+  useEffect(() => {
+    filterPasswords();
+  }, [passwords, searchTerm]);
+
+  const filterPasswords = () => {
+    let filtered = [...passwords];
+    
+    if (searchTerm) {
+      filtered = filtered.filter(password => 
+        password.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        password.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        password.username.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    setFilteredPasswords(filtered);
+  };
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
   const fetchPasswords = async (isAutoUpdate = false) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:5000/api/passwords', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Respuesta del servidor:', response.data);
       const allPasswords = response.data;
       const filteredPasswords = showOnlyFavorites ? allPasswords.filter(p => p.favorite) : allPasswords;
       
@@ -47,26 +74,25 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
       
       setPasswords(filteredPasswords);
     } catch (err) {
+      console.error('Error al obtener contraseñas:', err);
       setError('Error al cargar las contraseñas');
     }
   };
 
   const handleCreate = () => {
-    setModalData(null);
+    setModalData(null); 
     setShowModal(true);
   };
 
   const handleEdit = () => {
     if (!selectedPassword) {
-      setError('Por favor seleccione una contraseña para editar');
+      setError('Por favor, selecciona una contraseña para editar');
       return;
     }
-    
     const passwordToEdit = {
       ...selectedPassword,
-      password: selectedPassword.password
+      password: selectedPassword.decryptedPassword
     };
-    
     setModalData(passwordToEdit);
     setShowModal(true);
   };
@@ -118,26 +144,34 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
   const handleSubmit = async (formData) => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No hay token de autenticación');
+      }
+
       if (modalData) {
-        await axios.put(
-          `http://localhost:5000/api/passwords/${modalData._id}`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axios.put(`http://localhost:5000/api/passwords/${modalData._id}`, formData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setSuccess('Contraseña actualizada exitosamente');
       } else {
-        await axios.post(
-          'http://localhost:5000/api/passwords',
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axios.post('http://localhost:5000/api/passwords', formData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setSuccess('Contraseña creada exitosamente');
       }
+
       setShowModal(false);
-      fetchPasswords();
-    } catch (err) {
-      setError('Error al guardar la contraseña');
+      setModalData(null);
+      await fetchPasswords();
+    } catch (error) {
+      console.error('Error:', error);
+      setError(error.response?.data?.message || 'Error al procesar la contraseña');
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setModalData(null); 
   };
 
   const formatTimeAgo = (date) => {
@@ -163,9 +197,47 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
     return `hace ${diffInYears} años`;
   };
 
+  const togglePasswordVisibility = (passwordId, e) => {
+    e.stopPropagation();
+    console.log('Toggle password visibility para ID:', passwordId);
+    console.log('Estado actual:', visiblePasswords[passwordId]);
+    console.log('Contraseña actual:', passwords.find(p => p._id === passwordId));
+    setVisiblePasswords(prev => {
+      const newState = {
+        ...prev,
+        [passwordId]: !prev[passwordId]
+      };
+      console.log('Nuevo estado:', newState);
+      return newState;
+    });
+  };
+
+  const handleCopyClick = async (text, fieldName, e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setSuccess(`${fieldName} ha sido copiado al portapapeles`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error al copiar:', err);
+      setError('Error al copiar al portapapeles');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   return (
     <div className="password-manager">
       <div className="actions-bar">
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Buscar por URL, nombre o usuario..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="search-input"
+          />
+          <i className="fas fa-search search-icon"></i>
+        </div>
         {!showOnlyFavorites && (
           <button className="action-button create" onClick={handleCreate}>
             <i className="fas fa-plus"></i> Crear Contraseña
@@ -179,8 +251,8 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
         </button>
       </div>
 
-      {error && <p className="error-message">{error}</p>}
-      {success && <p className="success-message">{success}</p>}
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
 
       <div className="table-container">
         <table className="password-table">
@@ -196,7 +268,7 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
             </tr>
           </thead>
           <tbody>
-            {passwords.map(password => (
+            {filteredPasswords.map(password => (
               <tr 
                 key={password._id}
                 className={selectedPassword?._id === password._id ? 'selected' : ''}
@@ -218,10 +290,41 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
                   </button>
                 </td>
                 <td data-full-text={password.name}>{password.name}</td>
-                <td data-full-text={password.username}>{password.username}</td>
-                <td>••••••••</td>
-                <td data-full-text={password.url}>{password.url}</td>
-                <td data-full-text={formatTimeAgo(password.updatedAt)}>{formatTimeAgo(password.updatedAt)}</td>
+                <td 
+                  className="copyable-cell"
+                  onClick={(e) => handleCopyClick(password.username, "El nombre de usuario", e)}
+                  title="Haz clic para copiar"
+                >
+                  {password.username}
+                </td>
+                <td className="password-cell">
+                  <span 
+                    className="copyable-cell"
+                    onClick={(e) => handleCopyClick(
+                      visiblePasswords[password._id] ? password.decryptedPassword : password.decryptedPassword,
+                      "La contraseña",
+                      e
+                    )}
+                    title="Haz clic para copiar"
+                  >
+                    {visiblePasswords[password._id] ? password.decryptedPassword : '••••••••'}
+                  </span>
+                  <button 
+                    className="toggle-visibility-button"
+                    onClick={(e) => togglePasswordVisibility(password._id, e)}
+                    title={visiblePasswords[password._id] ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    <i className={`fas ${visiblePasswords[password._id] ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </td>
+                <td 
+                  className="copyable-cell"
+                  onClick={(e) => handleCopyClick(password.url, "La URL", e)}
+                  title="Haz clic para copiar"
+                >
+                  {password.url}
+                </td>
+                <td>{formatTimeAgo(password.updatedAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -230,7 +333,7 @@ const PasswordManager = ({ showOnlyFavorites = false }) => {
 
       <PasswordModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={handleCloseModal}
         onSubmit={handleSubmit}
         initialData={modalData}
       />

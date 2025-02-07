@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>VaultX Autocompletar</title>
+  <style>
+    body {
+      width: 300px;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .status.connected {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    .status.disconnected {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1565c0;
+    }
+    .credentials-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .credential-item {
+      padding: 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .credential-item:hover {
+      background-color: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="connectionStatus" class="status">
+      Verificando conexión...
+    </div>
+    
+    <div id="loginSection" style="display: none;">
+      <h3>Iniciar Sesión</h3>
+      <input type="text" id="email" placeholder="Email" style="width: 100%; margin-bottom: 8px;">
+      <input type="password" id="password" placeholder="Contraseña" style="width: 100%; margin-bottom: 8px;">
+      <button id="loginBtn">Iniciar Sesión</button>
+    </div>
+
+    <div id="mainSection" style="display: none;">
+      <h3>Credenciales Disponibles</h3>
+      <div id="credentialsList" class="credentials-list">
+        <!-- Las credenciales se cargarán dinámicamente aquí -->
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

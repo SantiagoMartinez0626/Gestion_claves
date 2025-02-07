@@ -12,22 +12,19 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, initialData }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        name: initialData.name || '',
-        username: initialData.username || '',
-        password: initialData.password || '',
-        url: initialData.url || ''
-      });
-    } else {
-      setFormData({
-        name: '',
-        username: '',
-        password: '',
-        url: ''
-      });
+    if (isOpen) {
+      if (initialData) {
+        setFormData(initialData);
+      } else {
+        setFormData({
+          name: '',
+          username: '',
+          password: '',
+          url: ''
+        });
+      }
     }
-  }, [initialData]);
+  }, [isOpen, initialData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -44,6 +41,15 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, initialData }) => {
       return;
     }
     onSubmit(formData);
+  };
+
+  const handleClose = () => {
+    setFormData({
+      name: '',
+      username: '',
+      password: '',
+      url: ''
+    });
     onClose();
   };
 
@@ -52,7 +58,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, initialData }) => {
   return (
     <div className="modal-overlay">
       <div className="modal-content">
-        <button className="modal-close" onClick={onClose}>×</button>
+        <button className="modal-close" onClick={handleClose}>×</button>
         <h2>{initialData ? 'Editar Contraseña' : 'Crear Contraseña'}</h2>
         
         <form onSubmit={handleSubmit}>
