@@ -48,6 +48,14 @@ async function handleLogin() {
 async function loadCredentials() {
   try {
     const token = await getStoredToken();
+    if (!token) {
+      updateConnectionStatus('No has iniciado sesión', false);
+      return;
+    }
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentUrl = tab.url;
+
     const response = await fetch('http://localhost:5000/api/passwords', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -57,25 +65,68 @@ async function loadCredentials() {
     if (!response.ok) throw new Error('Error al cargar credenciales');
     
     const credentials = await response.json();
-    displayCredentials(credentials);
+    
+    const matchingCredentials = credentials.filter(cred => 
+      currentUrl.includes(cred.url) || cred.url.includes(new URL(currentUrl).hostname)
+    ).map(cred => ({
+      title: cred.name,
+      username: cred.username,
+      password: cred.decryptedPassword,
+      url: cred.url
+    }));
+
+    if (matchingCredentials.length > 0) {
+      displayCredentials(matchingCredentials);
+      updateConnectionStatus('¡Se encontraron credenciales para este sitio!', true);
+    } else {
+      updateConnectionStatus('No hay credenciales guardadas para este sitio', false);
+    }
   } catch (error) {
+    console.error('Error:', error);
     updateConnectionStatus('Error al cargar credenciales', false);
   }
 }
 
 function displayCredentials(credentials) {
-  const list = document.getElementById('credentialsList');
-  list.innerHTML = '';
-  
+  const container = document.getElementById('credentialsContainer');
+  container.innerHTML = '';
+
   credentials.forEach(cred => {
-    const item = document.createElement('div');
-    item.className = 'credential-item';
-    item.innerHTML = `
-      <strong>${cred.name}</strong><br>
-      URL: ${cred.url}<br>
-      Usuario: ${cred.username}
+    const credDiv = document.createElement('div');
+    credDiv.className = 'credential-item';
+    credDiv.innerHTML = `
+      <h3>${cred.title || 'Credencial'}</h3>
+      <div class="credential-field">
+        <label>Usuario:</label>
+        <div class="copy-field">
+          <input type="text" value="${cred.username}" readonly>
+          <button class="copy-btn" data-value="${cred.username}">Copiar</button>
+        </div>
+      </div>
+      <div class="credential-field">
+        <label>Contraseña:</label>
+        <div class="copy-field">
+          <input type="password" value="${cred.password}" readonly>
+          <button class="copy-btn" data-value="${cred.password}">Copiar</button>
+        </div>
+      </div>
     `;
-    list.appendChild(item);
+
+    credDiv.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const textToCopy = btn.dataset.value;
+        await navigator.clipboard.writeText(textToCopy);
+        const originalText = btn.textContent;
+        btn.textContent = '¡Copiado!';
+        btn.style.background = '#00ffff';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '#00bfff';
+        }, 1500);
+      });
+    });
+
+    container.appendChild(credDiv);
   });
 }
 
